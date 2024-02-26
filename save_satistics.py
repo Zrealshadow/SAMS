@@ -17,7 +17,8 @@ args = parse_arguments()
 seed_everything(args.seed)
 
 
-data_dir = os.path.join(args.data_dir, "data/structure_data/", args.dataset)
+data_dir = os.path.join(args.data_dir, args.dataset)
+print("current data dir is " + data_dir)
 train_file = glob.glob("%s/tr*libsvm" % data_dir)[0]
 
 
