@@ -11,7 +11,6 @@ from src.model.nfm import NFM
 from src.model.sparsemax_verticalMoe import SparseMax_VerticalSAMS
 # from src.model.verticalMoE import VerticalSAMS
 # from src.model.verticalMoE_Plus import VerticalMoE_Predict_Sams
-import src.model.expert as expert
 from src.model.verticalMoE import VerticalSAMS
 
 def initialize_model(args: argparse.Namespace):
