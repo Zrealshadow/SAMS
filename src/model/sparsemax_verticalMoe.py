@@ -148,7 +148,7 @@ class SparseMax_VerticalSAMS(nn.Module):
         gate_score = self.sparsemax(gate_score)
         
         expert_score = gate_score.squeeze(0)
-        non_zero_indices = torch.nonzero(expert_score).t()
+        non_zero_indices = torch.nonzero(expert_score, as_tuple=False).t()
         non_zero_index = non_zero_indices.squeeze(0).cpu()
         non_zero_index = non_zero_index.numpy().tolist()
         
