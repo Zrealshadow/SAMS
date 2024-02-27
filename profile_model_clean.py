@@ -22,7 +22,7 @@ def load_model(tensorboard_path: str):
     net = initialize_model(model_config)
 
     model_pth_path = os.path.join(tensorboard_path, "best_model.pth")
-    saved_state_dict = torch.load(model_pth_path)
+    saved_state_dict = torch.load(model_pth_path, map_location=torch.device('cpu'))
 
     net.load_state_dict(saved_state_dict)
     print("successfully load model")
