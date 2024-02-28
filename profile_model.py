@@ -1,8 +1,3 @@
-import sys
-
-# Print the entire Python path
-print(sys.path)
-
 import os
 import random as ra
 import torch
