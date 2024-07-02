@@ -4,7 +4,7 @@ import glob
 import random
 import numpy as np
 import shutil
-
+from copy import deepcopy
 from typing import Callable, List
 from src.data_loader import SQLAttacedLibsvmDataset
 
@@ -54,6 +54,10 @@ census
 python generate_workload.py  --output_dir="/hdd1/sams/data/census/workload" --dataset=census --nfield=41 --n 40
 python generate_workload.py  --output_dir="/hdd1/sams/data/census/workload" --dataset=census --nfield=41 --n 100 --output_name random_100
 
+
+Avazu
+python generate_workload.py  --output_dir="/hdd1/sams/data/avazu/workload" --dataset=avazu --nfield=22 --n 40
+python generate_workload.py  --output_dir="/hdd1/sams/data/avazu/workload" --dataset=avazu --nfield=22 --n 100 --output_name random_100
 '''
 
 pwd = os.getcwd()
@@ -74,17 +78,23 @@ parser.add_argument('--max_select_col', type=int, default=3,
                     help="max selected column number for filter")
 
 
-def generate_workload(n: int, output_dir: str, data_dir: str, nfield: int, max_select_col: int, sample_func: Callable, min_sub_dataset:int = 20):
+def generate_workload(n: int, output_dir: str, data_dir: str, nfield: int, max_select_col: int, sample_func: Callable, min_sub_dataset:int = 20, max_sub_dataset:int = 2000000):
 
     # read train dataset get dict configuration
-    train_file = glob.glob("%s/tr*libsvm" % data_dir)[0]
+    train_file = glob.glob("%s/train.*" % data_dir)[0]
     train_dataset = SQLAttacedLibsvmDataset(train_file, nfield, max_select_col)
 
     # test dataset
-    test_file = glob.glob("%s/te*libsvm" % data_dir)[0]
+    test_file = glob.glob("%s/test.*" % data_dir)[0]
     test_dataset = SQLAttacedLibsvmDataset(test_file, nfield, max_select_col)
 
-    value_map = train_dataset.col_cardinalities
+    # value_map = train_dataset.col_cardinalities
+    value_map = []
+    # construct value map
+    for col in range(train_dataset.ncols):
+        valueset = train_dataset.feat_id[:,col].unique().numpy().tolist()
+        value_map.append(valueset)
+    
     col_padding = train_dataset.padding_feature_id
 
     feat_id = test_dataset.feat_id.numpy()
@@ -107,10 +117,10 @@ def generate_workload(n: int, output_dir: str, data_dir: str, nfield: int, max_s
     
     while i < n:
         
-        sql_query, padding_tuple = sample_func(value_map, max_select_col)
+        sql_query, padding_tuple = sample_func(value_map, max_select_col, col_padding)
         sub_data_idx = filter_data(feat_id, sql_query, col_padding)
 
-        if len(sub_data_idx) < min_sub_dataset:
+        if len(sub_data_idx) < min_sub_dataset or len(sub_data_idx) > max_sub_dataset:
             continue
         
         for idx in sub_data_idx:
@@ -127,6 +137,8 @@ def generate_workload(n: int, output_dir: str, data_dir: str, nfield: int, max_s
         sqlf.write(str(size) +":"+str(padding_tuple) + ":" + str(sql_query) + '\n')
         i += 1
 
+        print(f"finish query {i} contain data tuples {len(sub_data_idx)}")
+        
     description_path = os.path.join(output_dir, 'description.txt')
     
     with open(description_path, 'w', encoding='utf-8') as f:
@@ -143,7 +155,9 @@ def generate_workload(n: int, output_dir: str, data_dir: str, nfield: int, max_s
 
 
 def filter_data(data: np.array, sql_query: List, col_padding: List):
+    
     filter_condition = None
+    
     for i, col_value in enumerate(sql_query):
         if col_value == col_padding[i]:
             continue
@@ -156,22 +170,23 @@ def filter_data(data: np.array, sql_query: List, col_padding: List):
     return sub_data_idx.tolist()
 
 
-def random_sample(col_cardinalities: List[List], max_select_col: int):
-    col_num = len(col_cardinalities)
+def random_sample(value_map: List[List], max_select_col: int, padding_feat:List):
+    
+    col_num = len(value_map)
     max_select_col = max(col_num, max_select_col)
 
     select_col_n = random.randint(0, max_select_col)
 
     # all padding
-    sql_tuple = [col[-1] for col in col_cardinalities]
-    padding_tuple = [0] * len(col_cardinalities)
+    sql_tuple = deepcopy(padding_feat)
+    padding_tuple = [0] * len(padding_feat)
 
     # random choice select_col_n colomn
     cols = random.sample(range(0, col_num), select_col_n)
 
     for col in cols:
-        col_unique_list = col_cardinalities[col]
-        v = random.choice(col_unique_list[:-1])  # don't include padding
+        col_unique_list = value_map[col]
+        v = random.choice(col_unique_list)  # don't include padding
         sql_tuple[col] = v
         padding_tuple[col] = 1
     return sql_tuple, padding_tuple

@@ -16,8 +16,6 @@ def seed_everything(seed: int):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
 
-
-
 def arch_args(parser):
     # Model Select
     parser.add_argument('--net', default = "sams", type=str, 
@@ -96,7 +94,7 @@ def trainner_args(parser):
     parser.add_argument('--lr', type=float, default=0.002,
                         help="learning reate")
 
-    parser.add_argument('--iter_per_epoch', type=int, default=15,
+    parser.add_argument('--iter_per_epoch', type=int, default=1000,
                         help="200 for frappe, uci_diabetes, 2000 for criteo")
 
     # MLP train config
@@ -106,6 +104,10 @@ def trainner_args(parser):
     parser.add_argument('--save_best_model', type=bool, default=True, 
                         help='whether to save best model in log')
 
+    parser.add_argument('--patience', type=int, default=999, 
+                        help='if there is no improving between patience epoch, training will be early stopped')
+    
+    
 def data_set_config(parser):
     parser.add_argument('--data_dir', type=str, default="./third_party/data/",
                         help='path of data and result parent folder')

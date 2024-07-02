@@ -271,8 +271,8 @@ class EntmaxBisect(nn.Module):
         super().__init__()
         self.dim = dim
         self.n_iter = n_iter
-        # self.alpha = alpha
-        self.alpha = nn.Parameter(torch.tensor(alpha, dtype=torch.float32), requires_grad=requires_grad)
+        self.alpha = alpha
+        # self.alpha = nn.Parameter(torch.tensor(alpha, dtype=torch.float32), requires_grad=requires_grad)
         # self.alpha = nn.Parameter(torch.Tensor([alpha]).float(), requires_grad=requires_grad)
         
 

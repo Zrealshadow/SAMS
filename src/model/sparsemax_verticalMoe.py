@@ -38,7 +38,8 @@ class SparseMax_VerticalSAMS(nn.Module):
 
         
         self.sql_embedding = nn.Embedding(col_cardinality_sum, args.sql_nemb)
-        self.input_embedding = nn.Embedding(args.nfeat, args.data_nemb)
+        self.input_embedding = self.sql_embedding
+        # self.input_embedding = nn.Embedding(args.nfeat, args.data_nemb)
 
         nn.init.xavier_uniform_(self.sql_embedding.weight)
         nn.init.xavier_uniform_(self.input_embedding.weight)

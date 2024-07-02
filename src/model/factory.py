@@ -37,7 +37,7 @@ def initialize_model(args: argparse.Namespace):
     if args.net == "armnet":
         return ARMNet(args.nfield, args.nfeat, args.data_nemb, args.output_size, args.moe_hid_layer_len,
                       # model specific args
-                      args.nhead, args.nhid, 2, args.dropout)
+                      args.nhead, args.nhid, 1.5, args.dropout)
                       # alpha = 2.0 -> sparseMax
     
     if args.net == "nfm":

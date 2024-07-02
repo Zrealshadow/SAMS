@@ -67,11 +67,12 @@ parser.add_argument('--alpha', type=float,
 parser.add_argument('--workload', type=str,
                     default="random")
 device="cuda:0"
+
 if __name__ == '__main__':
     args = parser.parse_args()
     path = args.path
     net, config = load_model(path)
-    config.workload = 'random'
+    config.workload = args.workload
     print(config.workload)
     # config.
     # load data
@@ -99,7 +100,8 @@ if __name__ == '__main__':
                 score = score.squeeze(0)
                 
                 
-                nonzero = score.numpy() != 0            
+                nonzero = score.numpy() != 0          
+                # print(len(nonzero))  
                 # L = expert nnum
                 frequency.append(nonzero)
                 expert_num_for_each_item.append(np.sum(nonzero))

@@ -5,7 +5,7 @@ import random
 import numpy as np
 from torch.utils.data import Dataset, DataLoader,Subset
 import os
-
+from copy import deepcopy
 
 def decode_libsvm(line):
     columns = line.split(' ')
@@ -21,11 +21,31 @@ class SQLAttacedLibsvmDataset(Dataset):
     """ Dataset loader for Libsvm data format """
 
     def __init__(self, fname, nfields, max_filter_col):
-
+        src_type = fname.split('.')[-1]
+        if src_type == 'libsvm':
+            self.__read_from_libsvm__(fname, nfields)
+        elif src_type == 'npy':
+            self.__read_from_np__(fname, nfields)
+            
+        self.__init_setting__(max_filter_col)
+    
+    def __read_from_np__(self, fname:str, nfields:int):
+        
+        data = np.load(fname)
+        self.feat_id = torch.LongTensor(data[:,1:])
+        self.y = torch.FloatTensor(data[:,0])
+        self.feat_value = torch.ones(self.feat_id.shape)
+        
+        self.nsamples = self.feat_id.shape[0]
+        # number of columns
+        self.ncols = self.feat_id.shape[1]
+        
+        print(f'#{self.nsamples} data samples loaded...')
+    
+    
+    def __read_from_libsvm__(self, fname:str, nfields:int):
         with open(fname) as f:
             sample_lines = sum(1 for line in f)
-
-        self.generate_sql = True if max_filter_col != 0 else False
 
         self.feat_id = torch.LongTensor(sample_lines, nfields)
         self.feat_value = torch.FloatTensor(sample_lines, nfields)
@@ -48,37 +68,36 @@ class SQLAttacedLibsvmDataset(Dataset):
                     pbar.update(1)
         print(f'# {self.nsamples} data samples loaded...')
 
+
+
+
+    def __init_setting__(self, max_filter_col:int):
         # generate the columsn statics
         self.max_columns = min(self.feat_id.shape[1], max_filter_col)
-
+        
         # number of columns
         self.ncols = self.feat_id.shape[1]
 
-        # Convert the tensor to a list of lists, where each inner list contains the unique values from each column
-        self.col_cardinalities = [
-            self.feat_id[:, i].unique().tolist() for i in range(self.ncols)]
-
+        # max_value
+        max_value = self.feat_id.max().item()
+        
         # add pedding feature_id to each of the columns unique value.
         self.padding_feature_id = []
-        max_value = max(
-            value for sublist in self.col_cardinalities for value in sublist)
-        for i, sublist in enumerate(self.col_cardinalities):
-            # in place append
-            sublist.append(max_value + 1 + i)
+        for i in range(self.ncols):
             self.padding_feature_id.append(max_value + 1 + i)
 
-        print("self.sql_history is initialized !")
-        # this is used in infernece, as infernece must testd on the trained sql.
-        self.sql_history = set()
-
+        # print("self.sql_history is initialized !")
+        # # this is used in infernece, as infernece must testd on the trained sql.
+        # self.sql_history = set()
+        
     def generate_sql_by_row(self, row: torch.Tensor):
         # 1. firstly randomly pick number of the columns
         ncol = random.randint(0, self.max_columns)
 
         # default to not select any value, init all columns feature id to last of each list
-        random_sql = [col[-1] for col in self.col_cardinalities]
+        random_sql = deepcopy(self.padding_feature_id)
 
-        # 2. second, randomly pick two cols,
+        # 2. second, randomly pick two col s,
         selected_cols = random.sample(range(len(random_sql)), ncol)
 
         # 3. assign value from row to selected columns in random_sql
@@ -86,13 +105,13 @@ class SQLAttacedLibsvmDataset(Dataset):
             random_sql[col] = row[col].item()   # this is feature id
 
         # record history
-        self.sql_history.add(tuple(random_sql))
+        # self.sql_history.add(tuple(random_sql))
         return torch.tensor(random_sql)
     
     def generate_default_sql(self):
         # default to not select any value, init all columns feature id to last of each list
-        random_sql = [col[-1] for col in self.col_cardinalities]
-        return torch.tensor(random_sql)
+        default_sql = self.padding_feature_id
+        return torch.tensor(default_sql)
     
     
     def __len__(self):
@@ -117,15 +136,37 @@ class SQLAttacedLibsvmDataset(Dataset):
 class SQLAwareDataset(Dataset):
     
     def __init__(self, fname, nfields):
+        src_type = fname.split('.')[-1]
+        if src_type == 'libsvm':
+            self.__read_from_libsvm__(fname, nfields)
+        elif src_type == 'npy':
+            self.__read_from_np__(fname, nfields)
+            
+    def __read_from_np__(self, fname, nfields):
+        
+        data = np.load(fname)
+        self.feat_id = torch.LongTensor(data[:,1:])
+        self.y = torch.FloatTensor(data[:,0])
+        self.feat_value = torch.ones(self.feat_id.shape)
+        
+        self.nsamples = self.feat_id.shape[0]
+        # number of columns
+        self.ncols = self.feat_id.shape[1]
+        
+        print(f'#{self.nsamples} data samples loaded...')
+        
+    
+    
+    def __read_from_libsvm__(self, fname:str, nfields:int):
         with open(fname) as f:
             sample_lines = sum(1 for line in f)
-            
+
+
         self.feat_id = torch.LongTensor(sample_lines, nfields)
         self.feat_value = torch.FloatTensor(sample_lines, nfields)
         self.y = torch.FloatTensor(sample_lines)
-        
+
         self.nsamples = 0
-        
         with tqdm(total=sample_lines) as pbar:
             with open(fname) as fp:
                 line = fp.readline()
@@ -141,6 +182,9 @@ class SQLAwareDataset(Dataset):
                     line = fp.readline()
                     pbar.update(1)
         print(f'# {self.nsamples} data samples loaded...')
+
+        # generate the columsn statics
+
         
     def __len__(self):
         return self.nsamples
@@ -149,7 +193,9 @@ class SQLAwareDataset(Dataset):
         return {'id': self.feat_id[idx],
                 'value': self.feat_value[idx],
                 'y': self.y[idx]}
-        
+
+
+
 class Workload(object):
     
     def __init__(self, dataset:Dataset, dir_path:str):
@@ -165,9 +211,9 @@ class Workload(object):
         self.dataset = dataset
         self.init_sql(file_path=sql_file)
         
-        self.sub_idx_path_list = [os.path.join(idx_file_dir, i) for i in os.listdir(idx_file_dir)]
-
-        self.length = len(self.sql_list)
+        # self.sub_idx_path_list = [os.path.join(idx_file_dir, i) for i in os.listdir(idx_file_dir)]
+        self.length = len(os.listdir(idx_file_dir))
+        self.sub_idx_path_list = [os.path.join(idx_file_dir, "data_idx_{}.txt".format(i)) for i in range(self.length)]
         assert self.length == len(self.sub_idx_path_list)
         
         
@@ -177,13 +223,17 @@ class Workload(object):
             for line in f.readlines():
                 self.sql_list.append(eval(line.split(":")[-1].strip()))
 
+    def set_dataset(self, dataset:Dataset):
+        self.dataset = dataset
+    
     def __len__(self):
         return self.length
     
     
     def __getitem__(self, index):
+        n = len(self.dataset)
         with open(self.sub_idx_path_list[index], 'r') as f:
-            idxs = eval(f.read().strip())
+            idxs = [i for i in eval(f.read().strip()) if i < n]
             
         sql = torch.LongTensor(self.sql_list[index])
         return Subset(self.dataset, idxs), sql
@@ -195,13 +245,14 @@ def seed_worker(worker_id):
     np.random.seed(worker_seed)
     random.seed(worker_seed)
 
+
 def sql_attached_dataloader(args):
     # g = torch.Generator()
     # g.manual_seed(args.seed)
     data_dir = os.path.join(args.data_dir, args.dataset)
-    train_file = glob.glob("%s/tr*libsvm" % data_dir)[0]
-    val_file = glob.glob("%s/va*libsvm" % data_dir)[0]
-    test_file = glob.glob("%s/te*libsvm" % data_dir)[0]
+    train_file = glob.glob("%s/train.*" % data_dir)[0]
+    val_file = glob.glob("%s/val.*" % data_dir)[0]
+    test_file = glob.glob("%s/test.*" % data_dir)[0]
 
     train_loader = DataLoader(SQLAttacedLibsvmDataset(train_file, args.nfield, args.max_filter_col),
                               batch_size=args.batch_size, shuffle=True,
