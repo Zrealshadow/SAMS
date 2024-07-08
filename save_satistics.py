@@ -1,39 +1,37 @@
 
 
-from main import parse_arguments, seed_everything
+import argparse
 import os
 import glob
 import json
 from src.data_loader import SQLAttacedLibsvmDataset
 
 
-def write_json(file_name, data):
-    print(f"writting {file_name}...")
-    with open(file_name, 'w') as outfile:
-        outfile.write(json.dumps(data))
 
 
-args = parse_arguments()
-seed_everything(args.seed)
+parser = argparse.ArgumentParser(description="Process some dataset parameters.")
+parser.add_argument('--data_dir', type=str, required=True, help='Directory where the data is stored')
+parser.add_argument('--dataset', type=str, required=True, help='Name of the dataset')
+parser.add_argument('--nfield', type=int, required=True, help='Number of fields')
+parser.add_argument('--max_filter_col', type=int, default= 4, help='Maximum number of filter columns')
+parser.add_argument('--out_file', type=str, default="./")
+args = parser.parse_args()
 
 
-data_dir = os.path.join(args.data_dir, "data/structure_data/", args.dataset)
-train_file = glob.glob("%s/tr*libsvm" % data_dir)[0]
 
-
-train_loader = SQLAttacedLibsvmDataset(
-    train_file,
-    args.nfield,
-    args.max_filter_col)
-
-
-write_json(
-    f"{args.dataset}_col_cardinalities",
-    train_loader.col_cardinalities)
-
-"""
-export PYTHONPATH=$PYTHONPATH:./internal/ml/model_slicing
-python ./internal/ml/model_slicing/save_satistics.py --dataset frappe --data_dir ../exp_data/ --nfeat 5500 --nfield 10 --max_filter_col 10 --train_dir ./
-python ./internal/ml/model_slicing/save_satistics.py --dataset criteo --data_dir ../exp_data/ --nfeat 2100000 --nfield 39
-"""
-
+'''Command
+python save_satistics.py --data_dir /hdd1/sams/data/ \
+    --dataset avazu --nfield 22 \
+    --out_file ./avazu_padding.json
+'''
+if __name__ == '__main__':
+    
+    data_dir = os.path.join(args.data_dir, args.dataset)
+    train_file  = glob.glob("%s/train.*" % data_dir)[0]
+    dataset = SQLAttacedLibsvmDataset(train_file, args.nfield, args.max_filter_col)
+    
+    # List: col_idx -> padding_token
+    padding_list = dataset.padding_feature_id
+    
+    with open(args.out_file, 'w', encoding='utf-8') as f:
+        json.dump(padding_list, f)
