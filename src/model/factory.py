@@ -1,7 +1,5 @@
 import torch
 import argparse
-from src.model import SAMS
-from src.model import MoEDNN
 from src.model.afn import AFN
 from src.model.armnet import ARMNet
 from src.model.baseline import MeanMoE
@@ -9,13 +7,9 @@ from src.model.cin import CIN
 from src.model.dnn import DNN
 from src.model.nfm import NFM
 from src.model.sparsemax_verticalMoe import SparseMax_VerticalSAMS
-# from src.model.verticalMoE import VerticalSAMS
-# from src.model.verticalMoE_Plus import VerticalMoE_Predict_Sams
-import src.model.expert as expert
 from src.model.verticalMoE import VerticalSAMS
 
 def initialize_model(args: argparse.Namespace):
-
 
     if args.net == "dnn":
         return DNN(args.nfield, args.nfeat, args.data_nemb, args.output_size ,args.moe_hid_layer_len,
