@@ -179,4 +179,6 @@ class SliceModel(nn.Module):
         x = torch.stack(x_list, dim = 1)    # [B, K, nhid]
         x = self.weight.unsqueeze(-1) * x
         x = torch.sum(x, dim = 1)           # [B, nhid]
+        del x_emb
+        del x_list
         return x.squeeze(-1)
